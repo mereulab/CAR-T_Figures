@@ -1,0 +1,50 @@
+---
+title: "Figure 4"
+author: "Aina Rill-Hinarejos"
+date: "2023-07-04"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, out.width = "100%", fig.align='center', 
+                      message=FALSE, warning = FALSE)
+options(width = 1200)
+```
+
+# Introduction
+
+This is the code to reproduce **Figure 4 Expansion of γδ T cells. **: Fig3S C-F.
+To obtain the data object used in this notebook, please run **01_TCR_Data_Analysis.Rmd**.
+
+
+## Package loading
+
+```{r}
+library(Seurat)
+library(plyr)
+````
+
+## Data import
+
+```{r}
+seurat <- readRDS("../seurat.rds")
+````
+
+
+
+
+## Plot Fig3S C
+
+```{r}
+cols <- c("red3", "lightgrey")
+
+#cols<- c("red")
+seurat$TCR <- revalue(seurat$TCR_info, c("No TCR"="No αβ TCR", "TRA"= "αβ TCR", "TRA/TRB"="αβ TCR", "TRB"="αβ TCR"))
+DimPlot(seurat, group.by= "TCR", cols=cols, order = T)
+````
+
+
+# Session Info
+
+```{r}
+sessionInfo()
+```

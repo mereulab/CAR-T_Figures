@@ -1,0 +1,224 @@
+---
+title: "Figure3S"
+author: "Aina Rill-Hinarejos"
+date: "2023-07-04"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, out.width = "100%", fig.align='center', 
+                      message=FALSE, warning = FALSE)
+options(width = 1200)
+```
+
+# Introduction
+
+This is the code to reproduce **Figure 3S Additional analysis of CARPOS T cells. **: Fig3S C-F.
+To obtain the data object used in this notebook, please run **01_TCR_Data_Analysis.Rmd**.
+
+
+## Package loading
+
+```{r}
+library(gdata)
+library(reshape2)
+library(ggplot2)
+library(ggpubr)
+library(cowplot)
+library(scRepertoire)
+library(circlize)
+library(Startrac)
+library(stringr)
+library(plyr)
+library(dplyr)
+library(ggh4x)
+library(ggbeeswarm)
+library(monocle)
+````
+
+## Data import
+
+```{r}
+combined_infusion <- readRDS("../combined_infusion_CARPOS.rds")
+combined_infusion<- addVariable(combined_infusion, name = "patient", 
+                variables = c("patient1", "patient2","patient3", "patient4","patient5"))
+table_combined_infusion<- clonalDiversity(combined_infusion, 
+                cloneCall = "gene", 
+                group.by = "sample", 
+                n.boots = 100, exportTable = T) #diversity_infusion
+````
+
+
+
+```{r}
+combined_peak <- readRDS("../combined_peak_CARPOS.rds")
+combined_peak<- addVariable(combined_peak, name = "patient", 
+                variables = c("patient1", "patient2","patient3", "patient4","patient5"))
+table_combined_peak<- clonalDiversity(combined_peak, 
+                cloneCall = "gene", 
+                group.by = "sample", 
+                n.boots = 100, exportTable = T) #diversity_peak
+````
+
+```{r}
+table_combined_infusion$timepoint <- "Infusion"
+table_combined_peak$timepoint <- "Peak"
+
+table_combined_infusion$patient <- c("Patient 1", "Patient 2", "Patient 3", "Patient 4", "Patient 5")
+table_combined_peak$patient <- c("Patient 1", "Patient 2", "Patient 3", "Patient 4", "Patient 5")
+
+table_combined <- rbind(table_combined_infusion,table_combined_peak)
+table_combined$sample <- factor(table_combined$sample)
+````
+
+```{r}
+data <- readRDS("../dataordered_V2.rds")
+````
+
+```{r}
+table_combined_CAR <- readRDS("../combined_CARpos.rds")
+````
+
+```{r}
+seurat <- readRDS("../seurat.rds")
+seurat_carpos <- subset(seurat, subset = Class1 == "CAR+")
+seurat_carpos <- subset(seurat_carpos, subset = cloneType != "Single (0 < X <= 1)")
+seurat_carpos_nogd <- subset(seurat_carpos, subset = annotation != "9  γδ Tcells") #There are 4 T cells with TCR info annotated as gd
+
+data_pt1 <- subset(seurat_carpos_nogd, subset = Patient_id == "patient1")
+data_pt1_I <- subset(data_pt1, subset = Timepoint == "IP")
+data_pt1_P <- subset(data_pt1, subset = Timepoint == "Peak")
+
+data_pt2 <- subset(seurat_carpos_nogd, subset = Patient_id == "patient2")
+data_pt2_I <- subset(data_pt2, subset = Timepoint == "IP")
+data_pt2_P <- subset(data_pt2, subset = Timepoint == "Peak")
+
+data_pt3 <- subset(seurat_carpos_nogd, subset = Patient_id == "patient3")
+data_pt3_I <- subset(data_pt3, subset = Timepoint == "IP")
+data_pt3_P <- subset(data_pt3, subset = Timepoint == "Peak")
+
+data_pt4 <- subset(seurat_carpos_nogd, subset = Patient_id == "patient4")
+data_pt4_I <- subset(data_pt4, subset = Timepoint == "IP")
+data_pt4_P <- subset(data_pt4, subset = Timepoint == "Peak")
+
+data_pt5 <- subset(seurat_carpos_nogd, subset = Patient_id == "patient5")
+data_pt5_I <- subset(data_pt5, subset = Timepoint == "IP")
+data_pt5_P <- subset(data_pt5, subset = Timepoint == "Peak")
+````
+
+
+
+## Plot Fig3S C
+
+```{r}
+cols_patient =c("Patient 1"= "aquamarine", "Patient 2"="lightpink", "Patient 3"="yellow1", "Patient 4"="skyblue", "Patient 5"="sienna1")
+
+ggplot(table_combined, aes(x=timepoint, y=ACE))+
+  geom_point(size=3, pch=21, aes(fill=factor(patient)), show.legend = T)+
+  geom_line(aes(group = patient, color=patient))+
+  scale_fill_manual(values = cols_patient)+
+  scale_color_manual(values=cols_patient)+ theme_bw()+ theme(panel.border = element_blank(), panel.grid.major = element_blank(),
+panel.grid.minor = element_blank(), axis.line = element_line(colour = "black"), legend.title= element_blank()) + guides(patient= "none", color = "none")
+
+ggplot(table_combined, aes(x=timepoint, y=Inv.Pielou))+
+  geom_point(size=3, pch=21, aes(fill=factor(patient)), show.legend = T)+
+  geom_line(aes(group = patient, color=patient))+
+  scale_fill_manual(values = cols_patient)+
+  scale_color_manual(values=cols_patient)+ theme_bw()+ theme(panel.border = element_blank(), panel.grid.major = element_blank(),
+panel.grid.minor = element_blank(), axis.line = element_line(colour = "black"), legend.title= element_blank()) + guides(patient= "none", color = "none")
+````
+
+
+## Plot Fig3S D
+
+```{r}
+aux_df <- data.frame(barcodes=colnames(data),idents=data$annotation, Pseudotime=data$Pseudotime, Timepoint = data$Timepoint)
+cols_timepoint<- c("IP"="#4E6AAB","Peak"="#e78ac3")
+data$annotation<- factor(data$annotation, levels = c("0 CD8 Eff/Mem", "1 CD8 Eff/Cyto", "6 CD4 Mem", "3 CD4 Naive", "9 γδ", "8 Prolif - CCNB1", "4 Prolif - MCM", "5 Prolif - Histone", "2 Prolif - HMGN2", "7 Prolif/Degraded - PFN1"))
+
+ident_trajectory <- ggplot(aux_df,aes(x=idents,y=Pseudotime,col=Timepoint)) +
+  geom_quasirandom(alpha=.8) +
+  coord_flip() +
+  theme_classic() +
+  scale_color_manual(values=cols_timepoint) +
+  theme(text = element_text(size = 14)) 
+ident_trajectory
+````
+
+
+## Plot Fig3S E
+
+```{r}
+cols_patient2 <- c("aquamarine", "#6FDFBA", "lightpink", "#DF9FA9", "yellow1", "#DFDC00", "skyblue", "#76B4CF","sienna1", "#DF733E")
+
+table_unique_clono <-quantContig(table_combined_CAR,  exportTable = T)
+table_unique_clono$patient <- revalue(table_unique_clono$values, c("p1Ipos"="Patient 1", "p1Ppos"="Patient 1", "p2Ipos"="Patient 2", "p2Ppos"="Patient 2", "p3Ipos"="Patient 3", "p3Ppos"="Patient 3", "p4Ipos"="Patient 4", "p4Ppos"="Patient 4", "p5Ipos"="Patient 5", "p5Ppos"="Patient 5" ))
+table_unique_clono$patient <- factor(table_unique_clono$patient)
+table_unique_clono$timepoint <- rep(c("Peak","IP"),5)
+
+
+ggplot(table_unique_clono, aes(fill=values, y=contigs, x=patient)) + 
+    geom_bar(position="dodge", stat="identity")+ scale_fill_manual(values=cols_patient2) +
+  geom_text(aes(label=timepoint), position = position_dodge(width = .9), vjust = -0.3, color = "black") + theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+panel.background = element_blank(), axis.line = element_line(colour = "black"))
+```
+
+## Plot Fig3S F
+
+```{r}
+cols_anno<-c("0 CD8+ Eff mem (EM)" = "#A6CEE3", "1 CD8+ Eff cytotox (Ecyt)" = "#1F78B4","2 Early prolif: HMGN+/HMGB+/PCNA+ cells" = "#FDBF6F","3 CD4+ Naive/SCM" = "#33A02C","4 Early  prolif: MCM3/5/7+ PCNA+ cells" = "#FB9A99","5 Late prolif: histones enriched MKI67+ cells" = "#E31A1C","6 CD4+ Central/Effector memory (CM/EM)" = "#B2DF8A","7 Ribosomal/Mitocondrial/Degradated cells" = "#FF7F00","8 Late prolif: CDK+/CDC+/AURKA+ MIK67+ cells" = "#CAB2D6","9  γδ Tcells" = "#6A3D9A")
+
+I <- getCirclize(data_pt1_I, group.by = "annotation")
+I<-chordDiagram(I, self.link = 1, grid.col =cols_anno , annotationTrack = c("grid", "axis"))
+title("IP Patient 1")
+
+P <- getCirclize(data_pt1_P, group.by = "annotation")
+P<-chordDiagram(P, self.link = 1, grid.col =cols_anno, annotationTrack = c("grid", "axis") )
+title("Peak Patient 1")
+
+````
+```{r}
+I <- getCirclize(data_pt2_I, group.by = "annotation")
+I<-chordDiagram(I, self.link = 1, grid.col =cols_anno , annotationTrack = c("grid", "axis"))
+title("IP Patient 2")
+
+P <- getCirclize(data_pt2_P, group.by = "annotation")
+P<-chordDiagram(P, self.link = 1, grid.col =cols_anno, annotationTrack = c("grid", "axis") )
+title("Peak Patient 2")
+````
+
+```{r}
+I <- getCirclize(data_pt3_I, group.by = "annotation")
+I<-chordDiagram(I, self.link = 1, grid.col =cols_anno , annotationTrack = c("grid", "axis"))
+title("IP Patient 3")
+
+P <- getCirclize(data_pt3_P, group.by = "annotation")
+P<-chordDiagram(P, self.link = 1, grid.col =cols_anno, annotationTrack = c("grid", "axis") )
+title("Peak Patient 3")
+````
+
+```{r}
+I <- getCirclize(data_pt4_I, group.by = "annotation")
+I<-chordDiagram(I, self.link = 1, grid.col =cols_anno , annotationTrack = c("grid", "axis"))
+title("IP Patient 4")
+
+P <- getCirclize(data_pt4_P, group.by = "annotation")
+P<-chordDiagram(P, self.link = 1, grid.col =cols_anno, annotationTrack = c("grid", "axis") )
+title("Peak Patient 4")
+````
+
+```{r}
+I <- getCirclize(data_pt5_I, group.by = "annotation")
+I<-chordDiagram(I, self.link = 1, grid.col =cols_anno , annotationTrack = c("grid", "axis"))
+title("IP Patient 5")
+
+P <- getCirclize(data_pt5_P, group.by = "annotation")
+P<-chordDiagram(P, self.link = 1, grid.col =cols_anno, annotationTrack = c("grid", "axis") )
+title("Peak Patient 5")
+````
+
+
+# Session Info
+
+```{r}
+sessionInfo()
+```
