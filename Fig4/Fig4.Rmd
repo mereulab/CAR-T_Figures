@@ -23,6 +23,13 @@ library(Seurat)
 library(plyr)
 ````
 
+## Loading colors
+
+```{r}
+cols <- c("red3", "lightgrey")
+```
+
+
 ## Data import
 
 ```{r}
@@ -30,14 +37,9 @@ seurat <- readRDS("../seurat.rds")
 ````
 
 
-
-
 ## Plot Fig3S C
 
 ```{r}
-cols <- c("red3", "lightgrey")
-
-#cols<- c("red")
 seurat$TCR <- revalue(seurat$TCR_info, c("No TCR"="No αβ TCR", "TRA"= "αβ TCR", "TRA/TRB"="αβ TCR", "TRB"="αβ TCR"))
 DimPlot(seurat, group.by= "TCR", cols=cols, order = T)
 ````

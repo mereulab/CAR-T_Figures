@@ -1,0 +1,152 @@
+---
+title: "TCR analysis"
+author: "Aina Rill-Hinarejos"
+date: "2023-07-10"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, out.width = "100%", fig.align='center', 
+                      message=FALSE, warning = FALSE)
+options(width = 1200)
+```
+
+# Introduction
+
+The main objective of this notebook is to analyze the clonotype dynamics of our T cells. 
+
+In this notebook, we want to 
+
+## Package loading
+
+```{r}
+library(Seurat)
+library(scRepertoire)
+library(plyr)
+library(dplyr)
+library(reshape2)
+library(ggraph)
+````
+
+## Loading colors
+
+```{r}
+cols_patient3 <- c("#B7FEE7","aquamarine", "#6FDFBA","#63CDAA" ,"#FEDAE0","lightpink", "#DF9FA9","#C8848F", "#FFFEB3","#F8F667","yellow1", "#DFDC00", "#BCEBFF","skyblue", "#76B4CF","#478AA7","#FFBF9F","#FFA274","sienna1", "#DF733E")
+col_clono2 <- c("#810F7C", "#8856A7", "#8C96C6","#9EBCDA", "#BFD3E6")
+cols <- c("#A6CEE3","#1F78B4", "#FDBF6F", "#33A02C", "#FB9A99", "#E31A1C", "#B2DF8A","#FF7F00","#CAB2D6", "#6A3D9A", "#FFFF99", "#B15928", "#1B9E77", "#D95F02", "#7570B3", "#E7298A", "#66A61E", "#E6AB02", "#A6761D", "#666666", "aquamarine", "aquamarine4",  "beige", "bisque4", "lightpink", "lightpink3", "slateblue1", "slateblue4", "tan1", "tan4", "purple4", "purple1", "lightsalmon4","lightsalmon","maroon4", "maroon1", "lemonchiffon4", "lemonchiffon")
+col_clono <- c("Hyperexpanded (100 < X <= 500)"="#810F7C", "Large (20 < X <= 100)"="#8856A7","Medium (5 < X <= 20)"= "#8C96C6","Small (1 < X <= 5)"= "#9EBCDA", "Single (0 < X <= 1)"="#BFD3E6", "No clonotype detected"="gray69")
+````
+
+## Data import
+
+```{r}
+seurat <- readRDS("seurat.rds")
+combined <- readRDS("combined_ALL.rds")
+combined_pos <- readRDS("combined_CARpos.rds")
+````
+
+## Data analysis
+
+```{r}
+table_quant <- quantContig(combined, cloneCall="gene+nt", scale = T, exportTable = T)
+
+ggplot(table_quant, aes(fill=values, y=contigs, x=values)) + 
+    geom_bar(position="dodge", stat="identity")+ scale_fill_manual(values=cols_patient3) +
+  geom_text(aes(label=values), position = position_dodge(width = .9), vjust = -0.3, color = "black") + theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+panel.background = element_blank(), axis.line = element_line(colour = "black"))
+
+```
+
+```{r}
+table_hom<- clonalHomeostasis(combined, cloneCall = "gene", 
+                  cloneTypes = c(Rare = 1e-04, 
+                                 Small = 0.001, 
+                                 Medium = 0.01, 
+                                 Large = 0.1, 
+                                 Hyperexpanded = 1), exportTable = T)
+table_hom <- as.data.frame(table_hom)
+table_hom$sample <- rownames(table_hom)
+table_hom <- melt(table_hom)
+
+sample = as.factor(unique(table_hom$sample))
+length(sample)
+#20
+df_list <- list()
+
+for (i in 1:20) {
+  df <- subset(table_hom, sample == sample[[i]])
+  df_list[[i]] <- df
+}
+
+my_df= Reduce(function(x, y) merge(x, y, all=TRUE), df_list)
+
+y_sub= subset(my_df, variable =="Small (1e-04 < X <= 0.001)")
+y_sub = y_sub[order(-y_sub$value ),]
+ct = as.factor(y_sub$sample)
+my_df$sample <- factor(my_df$sample, levels = ct)
+
+y = my_df
+
+ggplot(y, aes(x = reorder(sample, -value), y = value)) +
+  geom_bar(aes(y = value, x = sample, fill = variable), stat = "identity") + scale_fill_manual(name = "Clonotype Group", 
+        values = rev(col_clono2) )+
+  ylab("Relative Abundance") +
+  xlab("samples") +
+  theme_classic()
+
+```
+
+```{r}
+clonalOverlay(seurat, reduction = "umap", 
+              freq.cutpoint = 30, bins = 10, facet = "Patient_id") + 
+                guides(color = "none") +  scale_color_manual(values =cols)
+
+clonalOverlay(seurat, reduction = "umap", 
+              freq.cutpoint = 10, bins = 10, facet = "Class1") + 
+                guides(color = "none")+  scale_color_manual(values =cols)
+
+````
+````{r}
+clonalOverlap(combined, cloneCall = "gene+nt", 
+              method = "morisita")
+````
+```{r}
+clonalDiversity(combined, 
+                cloneCall = "gene+nt", 
+                group.by = "sample", 
+                 
+                n.boots = 100)
+clonalDiversity(combined_pos, 
+                cloneCall = "gene+nt", 
+                group.by = "sample", 
+                 
+                n.boots = 100)
+````
+
+```{r}
+slot(seurat, "meta.data")$cloneType2 <- factor(slot(seurat, "meta.data")$cloneType, 
+                levels = c("Hyperexpanded (100 < X <= 500)", 
+                           "Large (20 < X <= 100)", 
+                            "Medium (5 < X <= 20)", 
+                            "Small (1 < X <= 5)", 
+                            "Single (0 < X <= 1)", "No clonotype detected"))
+seurat$cloneType2[is.na(seurat$cloneType2)] <- "No clonotype detected"
+
+DimPlot(seurat, group.by = "cloneType2", order = c("Hyperexpanded (100 < X <= 500)", "Large (20 < X <= 100)", "Medium (5 < X <= 20)", "Small (1 < X <= 5)", "Single (0 < X <= 1)", "No clonotype detected"), cols = col_clono) 
+````
+
+```{r}
+clonalNetwork(seurat, 
+              reduction = "umap", 
+              identity = "annotation",
+              filter.clones = 5000,
+              filter.identity = NULL,
+              cloneCall = "aa")+  scale_color_manual(values =cols)
+
+````
+
+
+# Session Info
+
+```{r}
+sessionInfo()
+```

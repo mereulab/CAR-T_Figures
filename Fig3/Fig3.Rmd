@@ -33,6 +33,15 @@ library(dplyr)
 library(ggh4x)
 ````
 
+## Loading colors
+
+```{r}
+cols_patient =c("Patient 1"= "aquamarine", "Patient 2"="lightpink", "Patient 3"="yellow1", "Patient 4"="skyblue", "Patient 5"="sienna1")
+col_clono <- c("Hyperexpanded (100 < X <= 500)"="#810F7C", "Large (20 < X <= 100)"="#8856A7","Medium (5 < X <= 20)"= "#8C96C6","Small (1 < X <= 5)"= "#9EBCDA", "Single (0 < X <= 1)"="#BFD3E6", "No clonotype detected"="gray69")
+strip <- strip_themed(background_x = elem_list_rect(fill = c("#A6CEE3", "#1F78B4", "#33A02C","#B2DF8A", "#CAB2D6", "#FB9A99", "#E31A1C", "#FDBF6F", "#FF7F00" )))
+cols_anno<-c("0 CD8+ Eff mem (EM)" = "#A6CEE3", "1 CD8+ Eff cytotox (Ecyt)" = "#1F78B4","2 Early prolif: HMGN+/HMGB+/PCNA+ cells" = "#FDBF6F","3 CD4+ Naive/SCM" = "#33A02C","4 Early  prolif: MCM3/5/7+ PCNA+ cells" = "#FB9A99","5 Late prolif: histones enriched MKI67+ cells" = "#E31A1C","6 CD4+ Central/Effector memory (CM/EM)" = "#B2DF8A","7 Ribosomal/Mitocondrial/Degradated cells" = "#FF7F00","8 Late prolif: CDK+/CDC+/AURKA+ MIK67+ cells" = "#CAB2D6","9  γδ Tcells" = "#6A3D9A")
+````
+
 ## Data import
 
 ```{r}
@@ -89,9 +98,6 @@ data_pt5 <- subset(seurat_carpos_nogd, subset = Patient_id == "patient5")
 ## Plot Fig3B
 
 ```{r}
-cols_patient =c("Patient 1"= "aquamarine", "Patient 2"="lightpink", "Patient 3"="yellow1", "Patient 4"="skyblue", "Patient 5"="sienna1")
-
-
 ggplot(table_combined, aes(x=timepoint, y=Shannon))+
   geom_point(size=3, pch=21,aes(fill=factor(patient)),show.legend = T)+
   geom_line(aes(group = patient, color=patient))+
@@ -104,8 +110,6 @@ panel.grid.minor = element_blank(), axis.line = element_line(colour = "black"), 
 ## Plot Fig3C
 
 ```{r}
-col_clono <- c("Hyperexpanded (100 < X <= 500)"="#810F7C", "Large (20 < X <= 100)"="#8856A7","Medium (5 < X <= 20)"= "#8C96C6","Small (1 < X <= 5)"= "#9EBCDA", "Single (0 < X <= 1)"="#BFD3E6", "No clonotype detected"="gray69")
-
 occRep_ip<-occupiedscRepertoire(seurat_IP, x.axis = "annotation", exportTable =T)
 occRep_peak <-occupiedscRepertoire(seurat_PEAK, x.axis = "annotation", exportTable =T)
 
@@ -122,7 +126,6 @@ occRep$annotation <- factor(occRep$annotation, levels=c("0 CD8+ Eff mem (EM)", "
                                                         "7 Ribosomal/Mitocondrial/Degradated cells"))
 occRep$cloneType <- factor(occRep$cloneType, levels = c("Small (1 < X <= 5)", "Medium (5 < X <= 20)", "Large (20 < X <= 100)", "Hyperexpanded (100 < X <= 500)"))
 
-strip <- strip_themed(background_x = elem_list_rect(fill = c("#A6CEE3", "#1F78B4", "#33A02C","#B2DF8A", "#CAB2D6", "#FB9A99", "#E31A1C", "#FDBF6F", "#FF7F00" )))
 
  # Draw barplot with grouping & stacking
 ggplot(occRep, aes(x = Timepoint, y = value, fill = cloneType)) + 
@@ -137,8 +140,6 @@ ggplot(occRep, aes(x = Timepoint, y = value, fill = cloneType)) +
 ## Plot Fig3D
 
 ```{r}
-cols_anno<-c("0 CD8+ Eff mem (EM)" = "#A6CEE3", "1 CD8+ Eff cytotox (Ecyt)" = "#1F78B4","2 Early prolif: HMGN+/HMGB+/PCNA+ cells" = "#FDBF6F","3 CD4+ Naive/SCM" = "#33A02C","4 Early  prolif: MCM3/5/7+ PCNA+ cells" = "#FB9A99","5 Late prolif: histones enriched MKI67+ cells" = "#E31A1C","6 CD4+ Central/Effector memory (CM/EM)" = "#B2DF8A","7 Ribosomal/Mitocondrial/Degradated cells" = "#FF7F00","8 Late prolif: CDK+/CDC+/AURKA+ MIK67+ cells" = "#CAB2D6","9  γδ Tcells" = "#6A3D9A")
-
 circles <- getCirclize(seurat_IP, group.by = "annotation")
 ll<-chordDiagram(circles, self.link = 1, grid.col =cols_anno , annotationTrack = c("grid", "axis"))
 title("IP")

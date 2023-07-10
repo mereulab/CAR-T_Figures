@@ -35,6 +35,15 @@ library(ggbeeswarm)
 library(monocle)
 ````
 
+## Loading colors
+
+```{r}
+cols_patient =c("Patient 1"= "aquamarine", "Patient 2"="lightpink", "Patient 3"="yellow1", "Patient 4"="skyblue", "Patient 5"="sienna1")
+cols_patient2 <- c("aquamarine", "#6FDFBA", "lightpink", "#DF9FA9", "yellow1", "#DFDC00", "skyblue", "#76B4CF","sienna1", "#DF733E")
+cols_timepoint<- c("IP"="#4E6AAB","Peak"="#e78ac3")
+cols_anno<-c("0 CD8+ Eff mem (EM)" = "#A6CEE3", "1 CD8+ Eff cytotox (Ecyt)" = "#1F78B4","2 Early prolif: HMGN+/HMGB+/PCNA+ cells" = "#FDBF6F","3 CD4+ Naive/SCM" = "#33A02C","4 Early  prolif: MCM3/5/7+ PCNA+ cells" = "#FB9A99","5 Late prolif: histones enriched MKI67+ cells" = "#E31A1C","6 CD4+ Central/Effector memory (CM/EM)" = "#B2DF8A","7 Ribosomal/Mitocondrial/Degradated cells" = "#FF7F00","8 Late prolif: CDK+/CDC+/AURKA+ MIK67+ cells" = "#CAB2D6","9  γδ Tcells" = "#6A3D9A")
+````
+
 ## Data import
 
 ```{r}
@@ -46,8 +55,6 @@ table_combined_infusion<- clonalDiversity(combined_infusion,
                 group.by = "sample", 
                 n.boots = 100, exportTable = T) #diversity_infusion
 ````
-
-
 
 ```{r}
 combined_peak <- readRDS("../combined_peak_CARPOS.rds")
@@ -71,7 +78,7 @@ table_combined$sample <- factor(table_combined$sample)
 ````
 
 ```{r}
-data <- readRDS("../dataordered_V2.rds")
+data <- readRDS("../dataordered.rds")
 ````
 
 ```{r}
@@ -106,12 +113,9 @@ data_pt5_P <- subset(data_pt5, subset = Timepoint == "Peak")
 ````
 
 
-
 ## Plot Fig3S C
 
 ```{r}
-cols_patient =c("Patient 1"= "aquamarine", "Patient 2"="lightpink", "Patient 3"="yellow1", "Patient 4"="skyblue", "Patient 5"="sienna1")
-
 ggplot(table_combined, aes(x=timepoint, y=ACE))+
   geom_point(size=3, pch=21, aes(fill=factor(patient)), show.legend = T)+
   geom_line(aes(group = patient, color=patient))+
@@ -132,7 +136,6 @@ panel.grid.minor = element_blank(), axis.line = element_line(colour = "black"), 
 
 ```{r}
 aux_df <- data.frame(barcodes=colnames(data),idents=data$annotation, Pseudotime=data$Pseudotime, Timepoint = data$Timepoint)
-cols_timepoint<- c("IP"="#4E6AAB","Peak"="#e78ac3")
 data$annotation<- factor(data$annotation, levels = c("0 CD8 Eff/Mem", "1 CD8 Eff/Cyto", "6 CD4 Mem", "3 CD4 Naive", "9 γδ", "8 Prolif - CCNB1", "4 Prolif - MCM", "5 Prolif - Histone", "2 Prolif - HMGN2", "7 Prolif/Degraded - PFN1"))
 
 ident_trajectory <- ggplot(aux_df,aes(x=idents,y=Pseudotime,col=Timepoint)) +
@@ -148,8 +151,6 @@ ident_trajectory
 ## Plot Fig3S E
 
 ```{r}
-cols_patient2 <- c("aquamarine", "#6FDFBA", "lightpink", "#DF9FA9", "yellow1", "#DFDC00", "skyblue", "#76B4CF","sienna1", "#DF733E")
-
 table_unique_clono <-quantContig(table_combined_CAR,  exportTable = T)
 table_unique_clono$patient <- revalue(table_unique_clono$values, c("p1Ipos"="Patient 1", "p1Ppos"="Patient 1", "p2Ipos"="Patient 2", "p2Ppos"="Patient 2", "p3Ipos"="Patient 3", "p3Ppos"="Patient 3", "p4Ipos"="Patient 4", "p4Ppos"="Patient 4", "p5Ipos"="Patient 5", "p5Ppos"="Patient 5" ))
 table_unique_clono$patient <- factor(table_unique_clono$patient)
@@ -165,8 +166,6 @@ panel.background = element_blank(), axis.line = element_line(colour = "black"))
 ## Plot Fig3S F
 
 ```{r}
-cols_anno<-c("0 CD8+ Eff mem (EM)" = "#A6CEE3", "1 CD8+ Eff cytotox (Ecyt)" = "#1F78B4","2 Early prolif: HMGN+/HMGB+/PCNA+ cells" = "#FDBF6F","3 CD4+ Naive/SCM" = "#33A02C","4 Early  prolif: MCM3/5/7+ PCNA+ cells" = "#FB9A99","5 Late prolif: histones enriched MKI67+ cells" = "#E31A1C","6 CD4+ Central/Effector memory (CM/EM)" = "#B2DF8A","7 Ribosomal/Mitocondrial/Degradated cells" = "#FF7F00","8 Late prolif: CDK+/CDC+/AURKA+ MIK67+ cells" = "#CAB2D6","9  γδ Tcells" = "#6A3D9A")
-
 I <- getCirclize(data_pt1_I, group.by = "annotation")
 I<-chordDiagram(I, self.link = 1, grid.col =cols_anno , annotationTrack = c("grid", "axis"))
 title("IP Patient 1")

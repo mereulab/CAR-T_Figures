@@ -23,6 +23,13 @@ library(corrplot)
 library(stackoverflow)
 ````
 
+## Loading colors
+
+```{r}
+cols <- COL1("Purples", 10)
+````
+
+
 ## Data import
 
 ```{r}
@@ -44,7 +51,7 @@ table_morisita[is.na(table_morisita)] <- 1
 
 corrplot(data.matrix(table_morisita), is.corr = F, method = 'circle', type = 'lower',
          insig='blank',addCoef.col ='black', number.cex = 0.8,
-         diag=F, tl.col = 'black',col = COL1("Purples", 10),addgrid.col = NA)
+         diag=F, tl.col = 'black',col = cols ,addgrid.col = NA)
 ````
 
 # Session Info
