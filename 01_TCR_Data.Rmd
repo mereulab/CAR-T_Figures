@@ -1,0 +1,135 @@
+---
+title: "TCR analysis"
+author: "Aina Rill-Hinarejos"
+date: "2023-07-10"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, out.width = "100%", fig.align='center', 
+                      message=FALSE, warning = FALSE)
+options(width = 1200)
+```
+
+# Introduction
+
+The main objective of this notebook is to add the TCR information of alpha and beta chains to our CAR+ and CAR- T cells. To do so, we followed scRepertoire package that takes filter contig outputs from the 10x Genomics Cell Ranger pipeline and processes that data to assign clonotypes based on the TCR chains.
+
+## Package loading
+
+```{r}
+library(Seurat)
+library(scRepertoire)
+library(plyr)
+library(dplyr)
+library(monocle)
+````
+
+## Data import
+
+For each patient, timepoint and absence/presence of CAR we read the *filtered_contig_annotations.csv* file obtained from 10x Genomics Cell Ranger pipeline.
+
+
+```{r}
+# Create the different categories
+patients <- c("patient1", "patient2", "patient3", "patient4", "patient5")
+timepoints <- c("Infusion", "Peak")
+cars <- c("CART-", "CART+")
+
+# Loop through patients, timepoints, and TCR types to read the CSV files
+for (patient in patients) {
+  for (timepoint in timepoints) {
+    for (car in cars) {
+      file_path <- paste0("../analysis/01_TCR_analysis/", patient, "/", timepoint, "/", car, "/filtered_contig_annotations.csv")
+      data_frame <- read.csv(file_path)
+      
+      # Generate the desired object name
+      object_name <- paste0("p", gsub("patient", "", patient), substr(timepoint, 1, 1), ifelse(car == "CART-", "neg", "pos"))
+      
+      # Assign the data frame to the object with the desired name
+      assign(object_name, data_frame)
+    }
+  }
+}
+````
+
+```{r}
+seurat <- readRDS("MENENDEZ_DEF.rds")
+````
+
+## Combining the Contigs
+
+```{r}
+# Define the list of samples and their corresponding objects
+sample_objects <- c("p1Ppos", "p1Ipos", "p1Pneg", "p1Ineg",
+                    "p2Ppos", "p2Ipos", "p2Pneg", "p2Ineg",
+                    "p3Ppos", "p3Ipos", "p3Pneg", "p3Ineg",
+                    "p4Ppos", "p4Ipos", "p4Pneg", "p4Ineg",
+                    "p5Ppos", "p5Ipos", "p5Pneg", "p5Ineg")
+
+# Define the combinations and filenames
+combinations <- list(
+  list(contigs = sample_objects, filename = "combined_ALL.rds"),
+  list(contigs = sample_objects[grep("pos", sample_objects)], filename = "combined_CARpos.rds"),
+  list(contigs = sample_objects[grep("Ppos", sample_objects)], filename = "combined_peak_CARPOS.rds"),
+  list(contigs = sample_objects[grep("Pneg", sample_objects)], filename = "combined_peak_CARNEG.rds"),
+  list(contigs = sample_objects[grep("Ipos", sample_objects)], filename = "combined_infusion_CARPOS.rds"),
+  list(contigs = sample_objects[grep("Ineg", sample_objects)], filename = "combined_infusion_CARNEG.rds")
+)
+# Set the directory where the files will be saved
+output_dir <- "data/combined_files"
+
+# Loop through the combinations and perform the combination and saving
+for (combination in combinations) {
+  contigs <- lapply(combination$contigs, get)
+  combined <- combineTCR(contigs, samples = combination$contigs)
+  file_path <- file.path(output_dir, combination$filename)
+  saveRDS(combined, file_path)
+}
+```
+
+## Combining with the Seurat object
+
+```{r}
+seurat <- combineExpression(combined, 
+                         seurat, 
+                         cloneCall="gene", 
+                         group.by = "none", 
+                         proportion = FALSE, 
+                         cloneSize=c(Single=1, Small=5, Medium=20, Large=100, Hyperexpanded=500))
+seurat$cloneSize <- factor(seurat$cloneSize, levels = c("Hyperexpanded (100 < X <= 500)", "Large (20 < X <= 100)", "Medium (5 < X <= 20)", "Small (1 < X <= 5)", "Single (0 < X <= 1)", "No clonotype detected"))
+seurat$cloneSize[is.na(seurat$cloneSize)] <- "No clonotype detected"
+saveRDS("data/MENENDEZ_DEF.rds")
+````
+
+## Other objects used in the notebooks to reproduce the figures:
+
+```{r}
+ordering.genes <- VariableFeatures(seurat)
+expression.data <- as.matrix(seurat@assays$RNA@counts[rownames(seurat@assays$RNA@data),])
+pd <- seurat@meta.data
+pheno.data.df <- pd
+
+pd <- new('AnnotatedDataFrame', data = pheno.data.df)
+fd <- data.frame(gene_short_name=rownames(seurat))
+rownames(fd) <- rownames(seurat)
+fd <- new('AnnotatedDataFrame', data = fd)
+
+data <- newCellDataSet(expression.data, featureData = fd,phenoData = pd,expressionFamily = negbinomial.size())
+
+data=estimateSizeFactors(data)
+data=estimateDispersions(data)
+
+data <- setOrderingFilter(data, ordering.genes)
+data <- reduceDimension(data,reduction_method ="DDRTree") # Reduce dimensionality
+
+# Cell ordering and trajectory
+data <- orderCells(data,reverse = T)
+saveRDS(data, "dataordered_V2.rds")
+````
+
+
+# Session Info
+
+```{r}
+sessionInfo()
+```
