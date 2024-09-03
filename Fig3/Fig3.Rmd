@@ -1,0 +1,283 @@
+---
+title: "Figure3"
+author: "Aina Rill-Hinarejos"
+date: "2023-07-04"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, out.width = "100%", fig.align='center', 
+                      message=FALSE, warning = FALSE)
+options(width = 1200)
+```
+
+# Introduction
+
+This is the code to reproduce **Figure 3 Longitudinal analysis of CARpos T cells across timepoints (IP and Peak).**: Fig3B-G.
+To obtain the data object used in this notebook, please run **01_TCR_Data_Analysis.Rmd**.
+
+
+## Package loading
+
+```{r}
+library(gdata)
+library(reshape2)
+library(ggplot2)
+library(ggpubr)
+library(cowplot)
+library(scRepertoire)
+library(circlize)
+library(Startrac)
+library(stringr)
+library(plyr)
+library(dplyr)
+library(ggh4x)
+````
+
+## Loading colors
+
+```{r}
+cols_patient =c("Patient 1"= "aquamarine", "Patient 2"="lightpink", "Patient 3"="yellow1", "Patient 4"="skyblue", "Patient 5"="sienna1")
+col_clono <- c("Hyperexpanded (100 < X <= 500)"="#810F7C", "Large (20 < X <= 100)"="#8856A7","Medium (5 < X <= 20)"= "#8C96C6","Small (1 < X <= 5)"= "#9EBCDA", "Single (0 < X <= 1)"="#BFD3E6", "No clonotype detected"="gray69")
+strip <- strip_themed(background_x = elem_list_rect(fill = c("#A6CEE3", "#1F78B4", "#185B88","#B2DF8A","#33A02C", "#CAB2D6", "#FB9A99", "#E31A1C", "#FDBF6F", "#FF7F00" )))
+cols_anno <- c("CD4+ Naive T cells"= "#33A02C",
+                     "CD4+ CEntral/Effector memory T cells (CM/EM)"="#B2DF8A",
+                     "CD8+ cytotoxic T cells"="#185B88",
+                     "CD8+ Effector T cells (E)"="#1F78B4",
+                     "CD8+ Eff/Mem T cells (EM)"="#A6CEE3",
+                     "Early prolif: MCM3/5/7+ PCNA+ T cells"="#FB9A99",
+                     "Late prolif: histones enriched MKI67+ T cells"="#E31A1C",
+                     "Late prolif: CCNB1/2+ CDK1+ T cells"="#CAB2D6", 
+                     "Late prolif: STMN1+ BIRC5+"="#FDBF6F",
+                     "Ribosomal/Mitochondrial/Degraded cells"="#FF7F00",
+                     "gamma-delta T cells"="#6A3D9A")
+````
+
+## Data import
+
+```{r}
+combined_infusion <- readRDS("../data/combined_files/combined_infusion_CARPOS.rds")
+combined_infusion<- addVariable(combined_infusion, variable.name = "patient", 
+                variables = c("patient1", "patient2","patient3", "patient4","patient5"))
+table_combined_infusion<- clonalDiversity(combined_infusion, 
+                cloneCall = "gene", 
+                group.by = "sample", 
+                n.boots = 100, exportTable = T) #diversity_infusion
+````
+
+
+
+```{r}
+combined_peak <- readRDS("../data/combined_files/combined_peak_CARPOS.rds")
+combined_peak<- addVariable(combined_peak, variable.name = "patient", 
+                variables = c("patient1", "patient2","patient3", "patient4","patient5"))
+table_combined_peak<- clonalDiversity(combined_peak, 
+                cloneCall = "gene", 
+                group.by = "sample", 
+                n.boots = 100, exportTable = T) #diversity_peak
+````
+
+## Data processing
+
+```{r}
+table_combined_infusion$timepoint <- "Infusion"
+table_combined_peak$timepoint <- "Peak"
+
+table_combined_infusion$patient <- c("Patient 1", "Patient 2", "Patient 3", "Patient 4", "Patient 5")
+table_combined_peak$patient <- c("Patient 1", "Patient 2", "Patient 3", "Patient 4", "Patient 5")
+
+table_combined <- rbind(table_combined_infusion,table_combined_peak)
+table_combined$sample <- factor(table_combined$sample)
+````
+
+```{r}
+data <- readRDS("../data/MENENDEZ_DEF.rds")
+seurat_carpos <- subset(data, subset = Class1 == "CAR+")
+seurat_carpos <- subset(seurat_carpos, subset = cloneSize != "Single (0 < X <= 1)")
+seurat_carpos <- subset(seurat_carpos, subset = cloneSize != "No clonotype detected")
+seurat_carpos_nogd <- subset(seurat_carpos, subset = annotation != "gamma-delta T cells") #There are 8 T cells with TCR info annotated as gd
+
+seurat_carpos_nogd$annotation <-factor(seurat_carpos_nogd$annotation)
+seurat_carpos_nogd$cloneSize <-factor(seurat_carpos_nogd$cloneSize)
+
+seurat_IP <- subset(seurat_carpos_nogd, subset = Timepoint == "IP")
+seurat_PEAK <- subset(seurat_carpos_nogd, subset = Timepoint == "Peak")
+````
+
+```{r}
+data_pt1 <- subset(seurat_carpos_nogd, subset = Patient_id == "patient1")
+data_pt2 <- subset(seurat_carpos_nogd, subset = Patient_id == "patient2")
+data_pt3 <- subset(seurat_carpos_nogd, subset = Patient_id == "patient3")
+data_pt4 <- subset(seurat_carpos_nogd, subset = Patient_id == "patient4")
+data_pt5 <- subset(seurat_carpos_nogd, subset = Patient_id == "patient5")
+````
+
+## Plot Fig3B
+
+```{r}
+ggplot(table_combined, aes(x=timepoint, y=shannon))+
+  geom_point(size=3, pch=21,aes(fill=factor(patient)),show.legend = T)+
+  geom_line(aes(group = patient, color=patient))+
+  scale_fill_manual(values = cols_patient)+
+  scale_color_manual(values=cols_patient)+ theme_bw()+ theme(panel.border = element_blank(), panel.grid.major = element_blank(),
+panel.grid.minor = element_blank(), axis.line = element_line(colour = "black"), legend.title= element_blank()) + guides(patient= "none", color = "none")
+````
+
+
+## Plot Fig3C
+
+```{r}
+occRep_ip<-clonalOccupy(seurat_IP, x.axis = "annotation", exportTable =T)
+occRep_peak <-clonalOccupy(seurat_PEAK, x.axis = "annotation", exportTable =T)
+
+occRep_ip$Timepoint <- "IP"
+occRep_peak$Timepoint <- "PEAK"
+
+occRep <- rbind(occRep_ip, occRep_peak)
+occRep$annotation <- factor(occRep$annotation, levels = 
+                                    c("CD8+ Eff/Mem T cells (EM)", 
+                                      "CD8+ Effector T cells (E)", 
+                                      "CD8+ cytotoxic T cells", 
+                                      "CD4+ CEntral/Effector memory T cells (CM/EM)", 
+                                      "CD4+ Naive T cells", "gamma-delta T cells", 
+                                      "Late prolif: CCNB1/2+ CDK1+ T cells", 
+                                      "Early prolif: MCM3/5/7+ PCNA+ T cells", 
+                                      "Late prolif: histones enriched MKI67+ T cells", 
+                                      "Late prolif: STMN1+ BIRC5+",
+                                      "Ribosomal/Mitochondrial/Degraded cells"))
+occRep$cloneSize <- factor(occRep$cloneSize, levels = c("Small (1 < X <= 5)", "Medium (5 < X <= 20)", "Large (20 < X <= 100)", "Hyperexpanded (100 < X <= 500)"))
+
+
+ # Draw barplot with grouping & stacking
+ggplot(occRep, aes(x = Timepoint, y = n, fill = cloneSize)) + 
+  geom_bar(stat = "identity", position = "stack") +
+  facet_grid(~ annotation) +
+  scale_fill_manual(values = col_clono) + facet_grid2(~ annotation, strip = strip) +
+  theme(strip.text = element_text(colour = NA),
+        axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=0.5))
+
+
+````
+
+
+## Plot Fig3D
+
+```{r}
+circles <- getCirclize(seurat_IP, group.by = "annotation")
+ll<-chordDiagram(circles, self.link = 1, grid.col =cols_anno , annotationTrack = c("grid", "axis"))
+title("IP")
+````
+
+
+
+## Plot Fig3E
+
+```{r}
+circles <- getCirclize(seurat_PEAK, group.by = "annotation")
+ll<-chordDiagram(circles, self.link = 1, grid.col =cols_anno, annotationTrack = c("grid", "axis") )
+title("Peak")
+````
+
+## Plot Fig3F
+
+```{r}
+seurat_carpos_nogd$anno_timepoint <- paste(seurat_carpos_nogd$annotation, seurat_carpos_nogd$Timepoint, sep = "_")
+seurat_carpos_nogd$majorCluster <- seurat_carpos_nogd$anno_timepoint
+seurat_carpos_nogd$Cell_Name <- rownames(seurat_carpos_nogd@meta.data)
+seurat_carpos_nogd$clone.id <- seurat_carpos_nogd$CTstrict
+seurat_carpos_nogd$patient <- seurat_carpos_nogd$Patient_id
+seurat_carpos_nogd$loc <- seurat_carpos_nogd$Timepoint
+
+
+out <- Startrac.run(seurat_carpos_nogd@meta.data, proj="CAR", cores=NULL,verbose=F)
+
+# We keep only data from the expansion index.
+out2 <-out@cluster.sig.data %>%  filter(str_detect(index, "expa"))
+out2 <-out2 %>%  filter(str_detect(aid, "CAR"))
+
+sums<-tapply(seurat_carpos_nogd$HALLMARK_G2M_CHECKPOINT, seurat_carpos_nogd$anno_timepoint, summary)
+
+list <- c()
+for(celltype_time in sums){
+  print(celltype_time[4])
+  list <- append(list, celltype_time[4]) 
+}
+
+# We add proliferation sums to the startrac output:
+out2$proliferation <- list
+colnames(out2) <- c("aid","majorCluster","index","expansion","p.value", "proliferation")
+
+#crear noves columnes amb la info de:
+out2$annotation <- gsub("\\_.*", "", out2$majorCluster)
+out2$timepoint <- gsub(".*\\_", "", out2$majorCluster)
+
+ggplot(out2, aes(x=proliferation, y=expansion, color=annotation, shape=timepoint)) + 
+  geom_point(size=3) + scale_color_manual(values = cols_anno)+ 
+  theme_bw()+ theme(panel.border = element_blank(), panel.grid.major = element_blank(),
+panel.grid.minor = element_blank(), axis.line = element_line(colour = "black"))
+````
+
+
+## Plot Fig3G
+
+```{r}
+cols2=c("CD4+ CEntral/Effector memory T cells (CM/EM)"="white",
+               "CD4+ Naive T cells"="white",
+               "CD8+ cytotoxic T cells"="#185B88",
+               "CD8+ Eff/Mem T cells (EM)"="white",
+               "CD8+ Effector T cells (E)"="white",
+               "Early prolif: MCM3/5/7+ PCNA+ T cells"="white",
+               "Late prolif: CCNB1/2+ CDK1+ T cells"="white",
+               "Late prolif: histones enriched MKI67+ T cells"="white",
+               "Late prolif: STMN1+ BIRC5+"="white",
+               "Ribosomal/Mitochondrial/Degraded cells"="white")
+pt1 <-alluvialClones(data_pt1, cloneCall = "CTstrict", 
+                   y.axes = c("annotation", "cloneType", "Timepoint"), 
+                   color = "annotation") + scale_fill_manual(values=cols2)+theme(legend.position = "none") +
+  scale_y_continuous(limits = c(0, 800))
+pt2 <-alluvialClones(data_pt2, cloneCall = "CTstrict", 
+                   y.axes = c("annotation", "cloneType", "Timepoint"), 
+                   color = "annotation") + scale_fill_manual(values=cols2)+theme(legend.position = "none") +
+  scale_y_continuous(limits = c(0, 800))
+pt3 <-alluvialClones(data_pt3, cloneCall = "CTstrict", 
+                   y.axes = c("annotation", "cloneType", "Timepoint"), 
+                   color = "annotation") + scale_fill_manual(values=cols2)+theme(legend.position = "none") +
+  scale_y_continuous(limits = c(0, 800))
+pt4 <-alluvialClones(data_pt4, cloneCall = "CTstrict", 
+                   y.axes = c("annotation", "cloneType", "Timepoint"), 
+                   color = "annotation") + scale_fill_manual(values=cols2)+theme(legend.position = "none") +
+  scale_y_continuous(limits = c(0, 800))
+pt5 <-alluvialClones(data_pt5, cloneCall = "CTstrict", 
+                   y.axes = c("annotation", "cloneType", "Timepoint"), 
+                   color = "annotation") + scale_fill_manual(values=cols2)+theme(legend.position = "none") + scale_y_continuous(limits = c(0, 800))
+
+ggarrange(pt1 + facet_grid(. ~"Patient 1"), 
+          pt2 + 
+               theme(axis.text.y = element_blank(),
+                     axis.ticks.y = element_blank(),
+                     axis.title.y = element_blank(),
+                     plot.margin = margin(r = 1, l = 1) )+ facet_grid(. ~"Patient 2"),
+          pt3 + 
+               theme(axis.text.y = element_blank(),
+                     axis.ticks.y = element_blank(),
+                     axis.title.y = element_blank(),
+                     plot.margin = margin(r = 1, l = 1) )+ facet_grid(. ~"Patient 3"), 
+          pt4 + 
+               theme(axis.text.y = element_blank(),
+                     axis.ticks.y = element_blank(),
+                     axis.title.y = element_blank(),
+                     plot.margin = margin(r = 1, l = 1) )+ facet_grid(. ~"Patient 4"), 
+          pt5 + 
+               theme(axis.text.y = element_blank(),
+                     axis.ticks.y = element_blank(),
+                     axis.title.y = element_blank(),
+                     plot.margin = margin(r = 1, l = 1) )+ facet_grid(. ~"Patient 5"),  align = "hv", ncol=5)
+````
+
+
+
+
+# Session Info
+
+```{r}
+sessionInfo()
+```

@@ -1,0 +1,61 @@
+---
+title: "Figure1S"
+author: "Aina Rill-Hinarejos"
+date: "2023-07-04"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, out.width = "100%", fig.align='center', 
+                      message=FALSE, warning = FALSE)
+options(width = 1200)
+```
+
+# Introduction
+
+This is the code to reproduce **Figure 1S Single-cell data exploration and quality.**: Fig1SF.
+To obtain the data object used in this notebook, please run **01_TCR_Data_Analysis.Rmd**.
+
+## Package loading
+
+```{r}
+library(scRepertoire)
+library(corrplot)
+library(stackoverflow)
+````
+
+## Loading colors
+
+```{r}
+cols <- COL1("Purples", 10)
+````
+
+
+## Data import
+
+```{r}
+combined <- readRDS("../data/combined_files/combined_ALL.rds")
+````
+
+## Plot Fig1SF
+
+```{r}
+table_morisita <-clonalOverlap(combined, 
+              cloneCall = "gene+nt", 
+              method = "morisita", exportTable = T)
+````
+
+```{r}
+table_morisita$names <- NULL
+table_morisita<- reflect_triangle(table_morisita, "upper")
+table_morisita[is.na(table_morisita)] <- 1
+
+corrplot(data.matrix(table_morisita), is.corr = F, method = 'circle', type = 'lower',
+         insig='blank',addCoef.col ='black', number.cex = 0.5,
+         diag=F, tl.col = 'black',col = cols ,addgrid.col = NA)
+````
+
+# Session Info
+
+```{r}
+sessionInfo()
+```

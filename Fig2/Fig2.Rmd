@@ -1,0 +1,160 @@
+---
+title: "Figure2"
+author: "Aina Rill-Hinarejos"
+date: "2023-07-04"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, out.width = "100%", fig.align='center', 
+                      message=FALSE, warning = FALSE)
+options(width = 1200)
+```
+
+# Introduction
+
+This is the code to reproduce **Figure 2 Differences among CARpos and CARneg T cells in the IP. **: Fig2L.
+
+## Package loading
+
+```{r}
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(ggbreak)
+library(pzfx)
+````
+
+## Loading colors
+
+```{r}
+cols <- c("#64D7FC", "#FF6EA6", "#FF9875", "#FED77A")
+````
+
+
+## Data import
+
+```{r}
+file_path <- "../data/Exhaustion_CAR_Persistance_CELL_REPORTS_MED.pzfx"
+
+tables <- pzfx_tables(file_path)
+CAR_Persistance <- lapply(tables, function(table) {
+  read_pzfx(file_path, table = table)
+})
+names(CAR_Persistance) <- tables
+CAR_Persistance <- bind_rows(CAR_Persistance, .id = "nombre_df") %>%
+    mutate(nombre_df = gsub("_", " ", nombre_df)) # renombrar los dataframe
+
+file_path <- "../data/Exhaustion_EFS_CELL_REPORTS_MED.pzfx"
+
+tables <- pzfx_tables(file_path)
+EFS <- lapply(tables, function(table) {
+  read_pzfx(file_path, table = table)
+})
+names(EFS) <- tables
+
+EFS <- bind_rows(EFS, .id = "nombre_df") %>%
+    mutate(nombre_df = gsub("_", " ", nombre_df))
+````
+
+## Data processing
+
+```{r}
+CAR_Persistance <- CAR_Persistance %>%
+  mutate(CD4CD8 = case_when(
+    grepl("CD4", nombre_df) ~ "CD4",
+    grepl("CD8", nombre_df) ~ "CD8",
+    TRUE ~ NA_character_ 
+  ))
+
+CAR_Persistance <- CAR_Persistance %>%
+  mutate(gene = case_when(
+    grepl("TIM3", nombre_df) ~ "TIM3",
+    grepl("CTLA4", nombre_df) ~ "CTLA4",
+    grepl("LAG3", nombre_df) ~ "LAG3",
+    grepl("PD1", nombre_df) ~ "PD1",
+    TRUE ~ NA_character_  
+  ))
+
+EFS <- EFS %>%
+  mutate(CD4CD8 = case_when(
+    grepl("CD4", nombre_df) ~ "CD4",
+    grepl("CD8", nombre_df) ~ "CD8",
+    TRUE ~ NA_character_  
+  ))
+EFS <- EFS %>%
+  mutate(gene = case_when(
+    grepl("TIM3", nombre_df) ~ "TIM3",
+    grepl("CTLA4", nombre_df) ~ "CTLA4",
+    grepl("LAG3", nombre_df) ~ "LAG3",
+    grepl("PD1", nombre_df) ~ "PD1",
+    TRUE ~ NA_character_  
+  ))
+````
+
+
+
+
+```{r}
+EFS_means <- EFS %>%
+  group_by(gene, CD4CD8) %>%
+  summarise(mean_BELOW_median = mean(`BELOW median`, na.rm = TRUE),
+            mean_ABOVE_median = mean(`ABOVE median`, na.rm = TRUE)) %>%
+  ungroup()
+
+EFS_means_long <- EFS_means %>%
+  pivot_longer(cols = c(mean_BELOW_median, mean_ABOVE_median), 
+               names_to = "median_type", 
+               values_to = "mean_value")
+EFS_means_long$name <- paste(EFS_means_long$gene, EFS_means_long$CD4CD8, sep = "_")
+
+CAR_Persistance_means <- CAR_Persistance %>%
+  group_by(gene, CD4CD8) %>%
+  summarise(mean_BELOW_median = mean(`BELOW median`, na.rm = TRUE),
+            mean_ABOVE_median = mean(`ABOVE median`, na.rm = TRUE)) %>%
+  ungroup()
+CAR_Persistance_means_long <- CAR_Persistance_means %>%
+  pivot_longer(cols = c(mean_BELOW_median, mean_ABOVE_median), 
+               names_to = "median_type", 
+               values_to = "mean_value")
+CAR_Persistance_means_long$name <- paste(CAR_Persistance_means_long$gene, CAR_Persistance_means_long$CD4CD8, sep = "_")
+
+````
+
+## Plot Fig2I
+
+
+
+```{r}
+p1<- ggplot(CAR_Persistance_means_long, aes(x = median_type, y = mean_value, shape = CD4CD8, group= name)) + 
+  geom_line(aes(color = gene)) + 
+  scale_shape_manual(values = c(15, 16)) +
+  geom_point(size = 3, aes(color = gene)) + 
+  scale_color_manual(values = cols)+
+  scale_x_discrete("") + scale_y_break(c(15, 30))  + 
+  theme(axis.text.x.top = element_blank(),
+        axis.ticks.x.top = element_blank(),
+        axis.line.x.top = element_blank(),
+        panel.background = element_blank(),
+        axis.line = element_line(colour = "black"),
+        axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=0.5))  + ggtitle("CAR Persistance")
+
+p2<- ggplot(EFS_means_long, aes(x = median_type, y = mean_value, shape = CD4CD8, group= name)) + 
+  geom_line(aes(color = gene)) +
+  scale_color_manual(values = cols)+
+  scale_shape_manual(values = c(15, 16)) +
+  geom_point(size = 3, aes(color = gene)) + 
+  scale_x_discrete("") + scale_y_break(c(15, 30))  + 
+      theme(axis.text.x.top = element_blank(),
+        axis.ticks.x.top = element_blank(),
+        axis.line.x.top = element_blank(),
+        panel.background = element_blank(),
+        axis.line = element_line(colour = "black"),
+        axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=0.5))  + ggtitle("EFS")
+p1+p2
+````
+
+# Session Info
+
+```{r}
+sessionInfo()
+```

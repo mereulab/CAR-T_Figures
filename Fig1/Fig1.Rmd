@@ -1,0 +1,146 @@
+---
+title: "Figure1"
+author: "Aina Rill-Hinarejos"
+date: "2023-07-04"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, out.width = "100%", fig.align='center', 
+                      message=FALSE, warning = FALSE)
+options(width = 1200)
+```
+
+# Introduction
+
+This is the code to reproduce **Figure 1 The landscape of T cell populations in r/r B-ALL patients treated with varni-cel.**: Fig1D-J.
+To obtain the data object used in this notebook, please run **01_TCR_Data_Analysis.Rmd**.
+
+## Package loading
+
+```{r}
+library(Seurat)
+library(UCell)
+library(ggplot2)
+````
+
+## Loading colors
+
+```{r}
+col_feature <- c("#C51B7D", "khaki1")
+col_clono <- c("Hyperexpanded (100 < X <= 500)"="#810F7C", "Large (20 < X <= 100)"="#8856A7","Medium (5 < X <= 20)"= "#8C96C6","Small (1 < X <= 5)"= "#9EBCDA", "Single (0 < X <= 1)"="#BFD3E6", "No clonotype detected"="gray69")
+cols_patient =c("Patient 1"= "aquamarine", "Patient 2"="lightpink", "Patient 3"="yellow1", "Patient 4"="skyblue", "Patient 5"="sienna1")
+cols_patient2 <- c("aquamarine", "#6FDFBA", "lightpink", "#DF9FA9", "yellow1", "#DFDC00", "skyblue", "#76B4CF","sienna1", "#DF733E")
+cols_timepoint<- c("IP"="#4E6AAB","Peak"="#e78ac3")
+cols_anno <- c("CD4+ Naive T cells"= "#33A02C",
+                     "CD4+ CEntral/Effector memory T cells (CM/EM)"="#B2DF8A",
+                     "CD8+ cytotoxic T cells"="#185B88",
+                     "CD8+ Effector T cells (E)"="#1F78B4",
+                     "CD8+ Eff/Mem T cells (EM)"="#A6CEE3",
+                     "Early prolif: MCM3/5/7+ PCNA+ T cells"="#FB9A99",
+                     "Late prolif: histones enriched MKI67+ T cells"="#E31A1C",
+                     "Late prolif: CCNB1/2+ CDK1+ T cells"="#CAB2D6", 
+                     "Late prolif: STMN1+ BIRC5+"="#FDBF6F",
+                     "Ribosomal/Mitochondrial/Degraded cells"="#FF7F00",
+                     "gamma-delta T cells"="#6A3D9A")
+cols_CAR<- c("CAR+"="#66C2A5" ,"CAR-"="#FC8D62") 
+````
+
+## Data import
+
+```{r}
+data <- readRDS("../MENENDEZ_DEF.rds")
+````
+
+```{r}
+signature <- list()
+signature[["cycling"]] <- c("TOP2A", "MKI67", "STMN1")
+signature[["effector.cytotoxic"]] <- c("CD8A", "CD8B","GZMA", "GZMK", "CCL5", "CXCR3","KLRG1", "CXCR3", "CXCR4", "PRF1")
+````
+
+```{r}
+data <- AddModuleScore_UCell(data, features = signature, ncores = 4)
+````
+
+## Plot Fig1D
+
+```{r}
+DimPlot(data, group.by = "Class1", cols=cols_CAR)
+```
+
+## Plot Fig1E
+
+```{r}
+DimPlot(data, group.by = "Timepoint", cols=cols_timepoint)
+```
+
+## Plot Fig1F
+
+```{r}
+FeaturePlot(data, features = "cycling_UCell", pt.size = 0.1, cols= col_feature) + ggtitle("Cycling score")
+````
+
+
+## Plot Fig1G
+
+```{r}
+FeaturePlot(data, features = "effector.cytotoxic_UCell", pt.size = 0.1, cols= col_feature, order=T) + ggtitle("Effector/Cytotoxic score")
+````
+
+## Plot Fig1H
+
+```{r}
+DimPlot(data, group.by = "cloneType", cols=col_clono, order = c("Hyperexpanded (100 < X <= 500)", "Large (20 < X <= 100)", "Medium (5 < X <= 20)", "Small (1 < X <= 5)", "Single (0 < X <= 1)", "No clonotype detected"))
+````
+
+## Plot Fig1I
+
+```{r}
+p1 <- DimPlot(data, group.by = "annotation", cols=cols_anno) + NoLegend() + ggtitle("") +
+  theme(axis.line=element_blank(),
+        axis.ticks=element_blank(),
+        axis.text.x=element_blank(), 
+        axis.text.y=element_blank(),
+        axis.title.x=element_blank(),
+        axis.title.y=element_blank())
+p2<- DimPlot(data, group.by = "annotation", cols=cols_anno, split.by = "Patient_id") + NoLegend() + ggtitle("") +
+  theme(axis.line=element_blank(),
+        axis.ticks=element_blank(),
+        axis.text.x=element_blank(), 
+        axis.text.y=element_blank(),
+        axis.title.x=element_blank(),
+        axis.title.y=element_blank())
+
+p1+p2
+```
+
+## Plot Fig1J
+
+```{r}
+finals_genes <- c("CD27", "GZMK", "CD8B",
+                  "GZMK", "PASK", "TCF7",
+                  "GZMH", "GZMB", "NKG7", "GNLY", "PRF1",
+                  "CD40LG", "CD4", "TIMP1",
+                  "IL7R", "TXNIP", "FXYD5",
+                  "TRDV1", "TYROBP", "TRGV8",
+                  "CCNB1", "CCNB2", "CDK1",
+                  "MCM5", "MCM7", "PCNA",
+                  "HIST1H1B", "MKI67", "AURKA", 
+                  "STMN1", "BIRC5", "HMGB2",
+                  "RPS2", "MT-CO2", "MT-CO3")
+data$annotation <- factor(data$annotation,
+                                  levels = 
+                                    c("CD8+ Eff/Mem T cells (EM)", "CD8+ Effector T cells (E)", "CD8+ cytotoxic T cells", "CD4+ CEntral/Effector memory T cells (CM/EM)", "CD4+ Naive T cells", "gamma-delta T cells", "Late prolif: CCNB1/2+ CDK1+ T cells", "Early prolif: MCM3/5/7+ PCNA+ T cells", "Late prolif: histones enriched MKI67+ T cells", "Late prolif: STMN1+ BIRC5+", "Ribosomal/Mitochondrial/Degraded cells"))
+Idents(data) <- data$annotation
+
+DotPlot(object = data, features = unique(finals_genes),  dot.scale = 8) + scale_colour_gradient2(low = "navyblue", mid = "khaki1", high = "red3") + theme(axis.text.x = element_text(angle =45, hjust=1))+
+theme(axis.title.y=element_blank(),
+      axis.title.x=element_blank(),
+      axis.text.y = element_text(size = 5),
+      axis.text.x = element_text(size = 5))
+```
+
+# Session Info
+
+```{r}
+sessionInfo()
+```
